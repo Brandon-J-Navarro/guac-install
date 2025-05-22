@@ -1,3 +1,10 @@
+# Forked from MysticRyuujin/guac-install
+
+Modified script to run on debian-12-turnkey-core LXC container on proxmox 
+
+NOTE: use at your own risk
+
+
 # guac-install
 
 I've maintained this script for quite a few years now with the help of the other contributors and it seems to be getting more and more fragmented as libraries and system OSes diverge in their package management. I do **not** plan on maintaining this beyond perhaps approving other people's PRs and letting people continue to discuss issues, so I won't archive it but I'm also not actively maintaining it 🤷‍♂️

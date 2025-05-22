@@ -8,10 +8,19 @@ if ! [ $( id -u ) = 0 ]; then
 fi
 
 # Check to see if any old files left over
-if [ "$( find . -maxdepth 1 \( -name 'guacamole-*' -o -name 'mysql-connector-java-*' \) )" != "" ]; then
-    echo "Possible temp files detected. Please review 'guacamole-*' & 'mysql-connector-java-*'" 1>&2
+if [ "$( find . -maxdepth 1 \( -name 'guacamole-*' -o -name 'mysql-connector-j-*' \) )" != "" ]; then
+    echo "Possible temp files detected. Please review 'guacamole-*' & 'mysql-connector-j-*'" 1>&2
     exit 1
 fi
+
+cat >> /etc/apt/sources.list.d/sources.list <<- "EOF"
+deb http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
+EOF
+
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C &> /dev/null
+apt-get -y update &> /dev/null
 
 # Version number of Guacamole to install
 # Homepage ~ https://guacamole.apache.org/releases/
@@ -19,7 +28,7 @@ GUACVERSION="1.5.5"
 
 # Latest Version of MySQL Connector/J if manual install is required (if libmariadb-java/libmysql-java is not available via apt)
 # Homepage ~ https://dev.mysql.com/downloads/connector/j/
-MCJVER="8.0.27"
+MCJVER="9.3.0"
 
 # Colors to use for output
 YELLOW='\033[1;33m'
@@ -220,8 +229,8 @@ if [[ "${NAME}" == "Ubuntu" ]] || [[ "${NAME}" == "Linux Mint" ]]; then
     add-apt-repository -y universe
     # Set package names depending on version
     JPEGTURBO="libjpeg-turbo8-dev"
-    if [[ "${VERSION_ID}" == "16.04" ]]; then
-        LIBPNG="libpng12-dev"
+    if [[ "${VERSION_ID}" == "22.04" ]]; then
+        LIBPNG="libpng-dev"
     else
         LIBPNG="libpng-dev"
     fi
@@ -235,10 +244,10 @@ if [[ "${NAME}" == "Ubuntu" ]] || [[ "${NAME}" == "Linux Mint" ]]; then
     fi
 elif [[ "${NAME}" == *"Debian"* ]] || [[ "${NAME}" == *"Raspbian GNU/Linux"* ]] || [[ "${NAME}" == *"Kali GNU/Linux"* ]] || [[ "${NAME}" == "LMDE" ]]; then
     JPEGTURBO="libjpeg62-turbo-dev"
-    if [[ "${PRETTY_NAME}" == *"bullseye"* ]] || [[ "${PRETTY_NAME}" == *"stretch"* ]] || [[ "${PRETTY_NAME}" == *"buster"* ]] || [[ "${PRETTY_NAME}" == *"Kali GNU/Linux Rolling"* ]] || [[ "${NAME}" == "LMDE" ]]; then
+    if [[ "${PRETTY_NAME}" == *"bullseye"* ]] || [[ "${PRETTY_NAME}" == *"stretch"* ]] || [[ "${PRETTY_NAME}" == *"buster"* ]] || [[ "${PRETTY_NAME}" == *"Kali GNU/Linux Rolling"* ]] || [[ "${NAME}" == "LMDE" ]] || [[ "${PRETTY_NAME}" == *"bookworm"* ]]; then
         LIBPNG="libpng-dev"
     else
-        LIBPNG="libpng12-dev"
+        LIBPNG="libpng-dev"
     fi
     if [ "${installMySQL}" = true ]; then
         MYSQL="default-mysql-server default-mysql-client mysql-common"
@@ -255,7 +264,8 @@ fi
 
 # Update apt so we can search apt-cache for newest Tomcat version supported & libmariadb-java/libmysql-java
 echo -e "${BLUE}Updating apt...${NC}"
-apt-get -qq update
+apt-get -qq update &> /dev/null
+
 
 # Check if libmariadb-java/libmysql-java is available
 # Debian 10 >= ~ https://packages.debian.org/search?keywords=libmariadb-java
@@ -271,7 +281,7 @@ elif [[ $( apt-cache show libmysql-java 2> /dev/null | wc -l ) -gt 0 ]]; then
     echo -e "${BLUE}Found libmysql-java package...${NC}"
     LIBJAVA="libmysql-java"
 else
-    echo -e "${YELLOW}lib{mariadb,mysql}-java not available. Will download mysql-connector-java-${MCJVER}.tar.gz and install manually${NC}"
+    echo -e "${YELLOW}lib{mariadb,mysql}-java not available. Will download mysql-connector-j-${MCJVER}.tar.gz and install manually${NC}"
     LIBJAVA=""
 fi
 
@@ -293,7 +303,7 @@ else
 fi
 
 # Uncomment to manually force a Tomcat version
-#TOMCAT=""
+#TOMCAT="tomcat10"
 
 # Install features
 echo -e "${BLUE}Installing packages. This might take a few minutes...${NC}"
@@ -383,15 +393,15 @@ fi
 # Deal with missing MySQL Connector/J
 if [[ -z $LIBJAVA ]]; then
     # Download MySQL Connector/J
-    wget -q --show-progress -O mysql-connector-java-${MCJVER}.tar.gz https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-${MCJVER}.tar.gz
+    wget -q --show-progress -O mysql-connector-j-${MCJVER}.tar.gz https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-j-${MCJVER}.tar.gz
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to download mysql-connector-java-${MCJVER}.tar.gz" 1>&2
-        echo -e "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-${MCJVER}.tar.gz${NC}"
+        echo -e "${RED}Failed to download mysql-connector-j-${MCJVER}.tar.gz" 1>&2
+        echo -e "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-j-${MCJVER}.tar.gz${NC}"
         exit 1
     else
-        tar -xzf mysql-connector-java-${MCJVER}.tar.gz
+        tar -xzf mysql-connector-j-${MCJVER}.tar.gz
     fi
-    echo -e "${GREEN}Downloaded mysql-connector-java-${MCJVER}.tar.gz${NC}"
+    echo -e "${GREEN}Downloaded mysql-connector-j-${MCJVER}.tar.gz${NC}"
 else
     echo -e "${YELLOW}Skipping manually installing MySQL Connector/J${NC}"
 fi
@@ -464,14 +474,14 @@ ln -sf /etc/guacamole/guacamole.war /var/lib/${TOMCAT}/webapps/
 
 # Deal with MySQL Connector/J
 if [[ -z $LIBJAVA ]]; then
-    echo -e "${BLUE}Moving mysql-connector-java-${MCJVER}.jar (/etc/guacamole/lib/mysql-connector-java.jar)...${NC}"
-    mv -f mysql-connector-java-${MCJVER}/mysql-connector-java-${MCJVER}.jar /etc/guacamole/lib/mysql-connector-java.jar
+    echo -e "${BLUE}Moving mysql-connector-j-${MCJVER}.jar (/etc/guacamole/lib/mysql-connector-j.jar)...${NC}"
+    mv -f mysql-connector-j-${MCJVER}/mysql-connector-j-${MCJVER}.jar /etc/guacamole/lib/mysql-connector-j.jar
 elif [ -e /usr/share/java/mariadb-java-client.jar ]; then
     echo -e "${BLUE}Linking mariadb-java-client.jar  (/etc/guacamole/lib/mariadb-java-client.jar)...${NC}"
     ln -sf /usr/share/java/mariadb-java-client.jar /etc/guacamole/lib/mariadb-java-client.jar
-elif [ -e /usr/share/java/mysql-connector-java.jar ]; then
-    echo -e "${BLUE}Linking mysql-connector-java.jar  (/etc/guacamole/lib/mysql-connector-java.jar)...${NC}"
-    ln -sf /usr/share/java/mysql-connector-java.jar /etc/guacamole/lib/mysql-connector-java.jar
+elif [ -e /usr/share/java/mysql-connector-j.jar ]; then
+    echo -e "${BLUE}Linking mysql-connector-j.jar  (/etc/guacamole/lib/mysql-connector-j.jar)...${NC}"
+    ln -sf /usr/share/java/mysql-connector-j.jar /etc/guacamole/lib/mysql-connector-j.jar
 else
     echo -e "${RED}Can't find *.jar file${NC}" 1>&2
     exit 1
@@ -564,14 +574,14 @@ if [ "${installMySQL}" = true ]; then
         if grep -q "^default_time_zone[[:space:]]?=" "${mysqlconfig}"; then
             echo -e "${YELLOW}Timezone already defined in ${mysqlconfig}${NC}"
         else
-            timezone="$( cat /etc/timezone )"
-            if [ -z "${timezone}" ]; then
-                echo -e "${YELLOW}Couldn't find timezone, using UTC${NC}"
-                timezone="UTC"
-            fi
+            timezone="-05:00"
+            #if [ -z "${timezone}" ]; then
+            #    echo -e "${YELLOW}Couldn't find timezone, using UTC${NC}"
+            #    timezone="UTC"
+            #fi
             echo -e "${YELLOW}Setting timezone as ${timezone}${NC}"
             # Fix for https://issues.apache.org/jira/browse/GUACAMOLE-760
-            mysql_tzinfo_to_sql /usr/share/zoneinfo 2>/dev/null | mysql -u root -D mysql -h ${mysqlHost} -P ${mysqlPort}
+            mysql_tzinfo_to_sql /usr/share/zoneinfo 2>/dev/null | mysql -D mysql
             crudini --set ${mysqlconfig} mysqld default_time_zone "${timezone}"
             # Restart to apply
             service mysql restart
@@ -596,7 +606,7 @@ SQLCODE="
 SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='${guacDb}';"
 
 # Execute SQL code
-MYSQL_RESULT=$( echo ${SQLCODE} | mysql -u root -D information_schema -h ${mysqlHost} -P ${mysqlPort} )
+MYSQL_RESULT=$( echo ${SQLCODE} | mysql -D information_schema )
 if [[ $MYSQL_RESULT != "" ]]; then
     echo -e "${RED}It appears there is already a MySQL database (${guacDb}) on ${mysqlHost}${NC}" 1>&2
     echo -e "${RED}Try:    mysql -e 'DROP DATABASE ${guacDb}'${NC}" 1>&2
@@ -611,7 +621,7 @@ SQLCODE="
 SELECT COUNT(*) FROM mysql.user WHERE user = '${guacUser}';"
 
 # Execute SQL code
-MYSQL_RESULT=$( echo ${SQLCODE} | mysql -u root -D mysql -h ${mysqlHost} -P ${mysqlPort} | grep '0' )
+MYSQL_RESULT=$( echo ${SQLCODE} | mysql -D mysql | grep '0' )
 if [[ $MYSQL_RESULT == "" ]]; then
     echo -e "${RED}It appears there is already a MySQL user (${guacUser}) on ${mysqlHost}${NC}" 1>&2
     echo -e "${RED}Try:    mysql -e \"DROP USER '${guacUser}'@'${guacUserHost}'; FLUSH PRIVILEGES;\"${NC}" 1>&2
@@ -629,11 +639,11 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON ${guacDb}.* TO '${guacUser}'@'${guacUserHos
 FLUSH PRIVILEGES;"
 
 # Execute SQL code
-echo ${SQLCODE} | mysql -u root -D mysql -h ${mysqlHost} -P ${mysqlPort}
+echo ${SQLCODE} | mysql -D mysql 
 
 # Add Guacamole schema to newly created database
 echo -e "${BLUE}Adding database tables...${NC}"
-cat guacamole-auth-jdbc-${GUACVERSION}/mysql/schema/*.sql | mysql -u root -D ${guacDb} -h ${mysqlHost} -P ${mysqlPort}
+cat guacamole-auth-jdbc-${GUACVERSION}/mysql/schema/*.sql | mysql -D ${guacDb} 
 if [ $? -ne 0 ]; then
     echo -e "${RED}Failed${NC}" 1>&2
     exit 1
@@ -690,7 +700,7 @@ fi
 # Cleanup
 echo -e "${BLUE}Cleanup install files...${NC}"
 rm -rf guacamole-*
-rm -rf mysql-connector-java-*
+rm -rf mysql-connector-j-*
 unset MYSQL_PWD
 echo
 
